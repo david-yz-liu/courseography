@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+% Install software dependencies from homebrew
+sudo apt-get install node
+sudo apt-get install yarn
+
+% Install Javascript dependencies using yarn
+yarn install

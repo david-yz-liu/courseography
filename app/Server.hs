@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings, CPP #-}
+
 {-|
 Description: Configure and run the server for Courseography.
 This module defines the configuration for the server, including logging.
@@ -8,26 +10,40 @@ module Server
     (runServer) where
 
 import Control.Monad (msum)
+import Control.Concurrent (killThread, forkIO)
 import Happstack.Server hiding (host)
 import Response (notFoundResponse)
 import Filesystem.Path.CurrentOS as Path
 import System.Directory (getCurrentDirectory)
 import System.IO (hSetBuffering, stdout, stderr, BufferMode(LineBuffering))
 import System.Log.Logger (updateGlobalLogger, rootLoggerName, setLevel, Priority(INFO))
+import System.Process (CreateProcess(..), StdStream(CreatePipe), createProcess, proc, spawnProcess, terminateProcess)
 import Data.String (fromString)
 import Config (markdownPath, serverConf)
 import qualified Data.Text.Lazy.IO as LazyIO
 import Routes (routes)
+import Data.List.Utils (replace)
+import GHC.IO.Handle (hClose)
+
+webpackScript :: Path.FilePath
+#ifdef mingw32_HOST_OS
+webpackScript = Path.concat ["node_modules", ".bin", "webpack.cmd"]
+#else
+webpackScript = Path.concat ["node_modules", ".bin", "webpack.cmd"]
+#endif
 
 runServer :: IO ()
 runServer = do
+    (Just hIn, _, _, webpackHandle) <- createProcess (proc
+      (Path.encodeString webpackScript ["--watch-stdin"]) {std_in = CreatePipe}
     configureLogger
     staticDir <- getStaticDir
     aboutContents <- LazyIO.readFile $ markdownPath ++ "README.md"
     privacyContents <- LazyIO.readFile $ markdownPath ++ "PRIVACY.md"
 
+    -- Run
     -- Start the HTTP server
-    simpleHTTP serverConf $ do
+    httpThreadId <- forkIO $ simpleHTTP serverConf $ do
       decodeBody (defaultBodyPolicy "/tmp/" 4096 4096 4096)
       msum
            (map (uncurry dir) (routes staticDir aboutContents privacyContents) ++
@@ -36,6 +52,10 @@ runServer = do
               seeOther ("graph" :: String) (toResponse ("Redirecting to /graph" :: String)),
               notFoundResponse
         ])
+    waitForTermination
+    killThread httpThreadId
+    -- Closing the stdin of webpack stops the watch.
+    hClose hIn
     where
     -- | Global logger configuration.
     configureLogger :: IO ()
