@@ -1,71 +1,92 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module DynamicGraphs.GraphGenerator where
+module DynamicGraphs.GraphGenerator
+  (sampleGraph)
+  where
 
-import           Data.GraphViz
-import           Data.GraphViz.Attributes.Complete
-import           Data.GraphViz.Types.Generalised   as G
-import           Data.GraphViz.Types.Monadic
-import           Data.Text.Lazy                    as L
-import           Data.Word
-import           DynamicGraphs.WriteRunDot
-
-ex3 :: G.DotGraph L.Text
-ex3 = digraph (Str "ex3") $ do
-
-    graphAttrs [RankDir FromLeft]
-
-    cluster (Str "G1") $ do
-        nodeAttrs               [shape Circle, Width 1, style filled, myColor 1]
-        node "A"                [textLabel "MAT237"]
-
-    cluster (Str "G2") $ do
-        nodeAttrs               [shape Circle, Width 1, style filled, myColor 1]
-        node "B"                [textLabel "STA261"]
-
-    cluster (Str "G3") $ do
-        nodeAttrs               [shape Circle, Width 1, style filled, myColor 1]
-        node "C"                [textLabel "MAT224"]
-
-    cluster (Str "G4") $ do
-        nodeAttrs               [shape Circle, Width 1, style filled, myColor 2]
-        node "D"                [textLabel "MAT137"]
-
-    cluster (Str "G5") $ do
-        nodeAttrs               [shape Circle, Width 1, style filled, myColor 2]
-        node "E"                [textLabel "MAT157"]
-
-    cluster (Str "G6") $ do
-        nodeAttrs               [shape Circle, Width 1, style filled, myColor 3]
-        node "F"                [textLabel "STA257"]
-
-    cluster (Str "G0") $ do
-        nodeAttrs               [shape Circle, Width 1, style filled, myColor 4]
-        node "ZZ"               [textLabel "STA302"]
-
-    ("A" :: Text)             --> ("ZZ" :: Text)
-    ("B" :: Text)              --> ("ZZ" :: Text)
-    ("C" :: Text)              --> ("ZZ" :: Text)
-    ("D" :: Text)              --> ("Or" :: Text)
-    ("E" :: Text)              --> ("Or" :: Text)
-    ("Or" :: Text)             --> ("A" :: Text)
-    ("F" :: Text)              --> ("B" :: Text)
+import Data.GraphViz.Attributes as A
+import Data.GraphViz.Attributes.Complete as AC
+import Data.GraphViz.Types.Generalised (
+  DotGraph(..),
+  DotStatement(..),
+  GlobalAttributes(..))
+import Database.Requirement (Req(..))
+import Data.Sequence as Seq
+import Data.Text.Lazy (Text)
 
 
--- http://www.colorcombos.com/color-schemes/2025/ColorCombo2025.html
-myColorCL :: Word8 -> ColorList
-myColorCL n | n == 1 = c $ (RGB 127 108 138)
-            | n == 2 = c $ (RGB 175 177 112)
-            | n == 3 = c $ (RGB 226 206 179)
-            | n == 4 = c $ (RGB 172 126 100)
-            | otherwise = c $ (RGB 127 108 138)
- where c rgb = toColorList [rgb]
+buildGraph :: [DotStatement Text] -> DotGraph Text
+buildGraph statements = DotGraph {
+    strictGraph = False,
+    directedGraph = True,
+    graphID = Nothing,
+    graphStatements = Seq.fromList $ [
+        GA graphAttributes,
+        GA nodeAttributes,
+        GA edgeAttributes
+        ] ++ statements
+    }
 
 
-myColor :: Word8 -> Attribute
-myColor n = Color $ myColorCL n
+graphAttributes :: GlobalAttributes
+graphAttributes = GraphAttrs [AC.RankDir AC.FromLeft]
+
+nodeAttributes :: GlobalAttributes
+nodeAttributes = NodeAttrs [A.shape A.Circle, AC.Width 1, A.style A.filled]
+
+edgeAttributes :: GlobalAttributes
+edgeAttributes = EdgeAttrs []
 
 
-main :: IO ()
-main = do
-    doDots [ ("ex3" , ex3) ]
+reqsToGraph :: [Req] -> DotGraph Text
+reqsToGraph reqs =
+    let stmts = concatMap reqToStmts reqs
+    in
+        buildGraph stmts
+
+
+reqToStmts :: Req -> [DotStatement Text]
+reqToStmts _ = []
+
+sampleGraph = reqsToGraph []
+
+-- ex3 :: G.DotGraph Text
+-- ex3 = digraph (Str "ex3") $ do
+--
+--     graphAttrs [RankDir FromLeft]
+--
+--     cluster (Str "G1") $ do
+--         nodeAttrs               [shape Circle, Width 1, style filled, myColor 1]
+--         node "A"                [textLabel "MAT237"]
+--
+--     cluster (Str "G2") $ do
+--         nodeAttrs               [shape Circle, Width 1, style filled, myColor 1]
+--         node "B"                [textLabel "STA261"]
+--
+--     cluster (Str "G3") $ do
+--         nodeAttrs               [shape Circle, Width 1, style filled, myColor 1]
+--         node "C"                [textLabel "MAT224"]
+--
+--     cluster (Str "G4") $ do
+--         nodeAttrs               [shape Circle, Width 1, style filled, myColor 2]
+--         node "D"                [textLabel "MAT137"]
+--
+--     cluster (Str "G5") $ do
+--         nodeAttrs               [shape Circle, Width 1, style filled, myColor 2]
+--         node "E"                [textLabel "MAT157"]
+--
+--     cluster (Str "G6") $ do
+--         nodeAttrs               [shape Circle, Width 1, style filled, myColor 3]
+--         node "F"                [textLabel "STA257"]
+--
+--     cluster (Str "G0") $ do
+--         nodeAttrs               [shape Circle, Width 1, style filled, myColor 4]
+--         node "ZZ"               [textLabel "STA302"]
+--
+--     ("A" :: Text)             --> ("ZZ" :: Text)
+--     ("B" :: Text)              --> ("ZZ" :: Text)
+--     ("C" :: Text)              --> ("ZZ" :: Text)
+--     ("D" :: Text)              --> ("Or" :: Text)
+--     ("E" :: Text)              --> ("Or" :: Text)
+--     ("Or" :: Text)             --> ("A" :: Text)
+--     ("F" :: Text)              --> ("B" :: Text)
